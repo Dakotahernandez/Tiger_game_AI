@@ -14,6 +14,10 @@ The men cannot take the tiger, but can only block him. The tiger, by jumping ove
 
 <img width="206" alt="Screenshot 2025-03-25 at 8 10 59 AM" src="https://github.com/user-attachments/assets/72bf8088-5549-4a49-8b0e-dd6243df5e92" />
 
+# REQUIREMENTS 
+SDL2 and SDL_MIXER
+
+
 # Guide to getting SDL_2 to work on xcode for Mac(working on mac silicon and intel chips)
 The given libary also requires SDL_MIXER
 

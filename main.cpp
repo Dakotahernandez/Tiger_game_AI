@@ -1,33 +1,82 @@
+//============================================================================
+// Name        : Bear.cpp
+// Author      : Dr. Booth
+// Version     :
+// Copyright   : Your copyright notice
+// Description : Tiger Game
+//============================================================================
+
 #include <iostream>
 using namespace std;
 
-enum Color_t {RED, BLUE};
+#include "SDL_Plotter.h"
+#include "Line.h"
+#include "BearGame.h"
 
-struct Point_t{
-	int row, col;
-};
+int main() {
 
-struct Token_t{
-	Color_t color;
-	Point_t location;
-};
+	SDL_Plotter g(ROWS, COLUMNS);
 
-struct Move_t{
-	Token_t token;
-	Point_t destination;
-};
+	BearGame game(g);
+	int x,y;
 
-Move_t  Move(vector<Token_t>, Color_t turn);
 
-/*
- * Each group will implement the Move function and
- * submit their code using the Upload Site.
- * You should name your move function: Move_GroupName.
- * This will create a function prototype something like:
- *  Move_t Move_GroupName(vector<Token_t>, Color_t turn);
- */
+	while(!g.getQuit()){
 
-int main(){
-  cout << "Tiger Game" << endl;
-  return 0;
+
+		if(g.kbhit()){
+			switch(g.getKey()){
+
+			}
+		}
+
+		if(g.getMouseDown(x,y)){
+			game.checkForClickOnToken(Point(x,y));
+		}
+
+		if(g.getMouseUp(x,y)){
+			if(game.isOver() && game.getPause()){
+			    game.setGameOver(false);
+			    g.clear();
+			    game = BearGame(g);
+			}
+			else{
+				game.updateTokenLocation(Point(x,y), g);
+				if(!game.isTigersTurn() && game.tigerWins()){
+					game.displayFile(Point(150,450),"Tiger.bmp.txt",g);
+					game.setGameOver(true);
+					game.setPause(true);
+				}
+
+				else if(game.isTigersTurn() && game.manWins()){
+					game.displayFile(Point(210,450),"manwins.bmp.txt",g);
+					game.setGameOver(true);
+					game.setPause(true);
+				}
+			}
+
+
+		}
+
+		if(g.getMouseMotion(x,y)){
+
+			game.checkAttachedToken(Point(x,y), g);
+		}
+
+		if(game.isTigersTurn()){
+			//game.randomMove(g); //Move Tiger
+		}
+		else{
+			//game.randomMove(g); //Move Man
+		}
+
+
+
+
+
+
+		game.draw(g);
+		g.update();
+	}
+	return 0;
 }

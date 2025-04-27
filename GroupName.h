@@ -92,7 +92,7 @@ static std::vector<Move_t> getValidMoves(const std::vector<Token_t>& state,
 static Move_t Move_GroupName(const std::vector<Token_t>& state,
                              Color_t turn) {
     auto validMoves = getValidMoves(state, turn);
-    // Use validMoves in your AI logic; here we just return the first as a placeholder
+    // Use validMoves in AI logic; here we just return the first as a placeholder
     if (!validMoves.empty())
         return validMoves.front();
     return Move_t{};

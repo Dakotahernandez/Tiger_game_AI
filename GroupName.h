@@ -86,6 +86,34 @@ static std::vector<Move_t> getValidMoves(const std::vector<Token_t>& state,
     return valid;
 }
 
+//TIGER
+// Find and return a capture move for the tiger, if any.
+// Sets foundCapture = true if a capture was found, otherwise false.
+static Move_t tigerCaptureMove(const std::vector<Move_t>& validMoves,
+                               const std::vector<Token_t>& state,
+                               bool& foundCapture) {
+    foundCapture = false;
+    for (const auto& move : validMoves) {
+        for (const auto& t : state) {
+            if (t.color == RED &&
+                t.location.row == move.token.location.row &&
+                t.location.col == move.token.location.col) {
+                int dRow = std::abs(move.destination.row - t.location.row);
+                int dCol = std::abs(move.destination.col - t.location.col);
+                if (dRow == 2 || dCol == 2) {
+                    foundCapture = true;
+                    return move;
+                }
+            }
+        }
+    }
+    return Move_t{}; // Return empty move if no capture found
+}
+
+
+//MEN
+
+
 // ----------------- AI Entry Point -----------------
 
 // This is the function called by the game engine

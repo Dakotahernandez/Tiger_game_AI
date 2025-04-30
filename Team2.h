@@ -482,22 +482,25 @@ static Move_t moveMen(const vector<Token_t>& state) {
     }
 
     // 4) From bottom up, pick the next pawn (round‐robin via manTurn)
+    bool found = false;
     int rowsChecked = 0;
     int rowCursor = maxRow;
-    while (rowsChecked < 13) {
+    while (rowsChecked < 13 && !found) {
         if (!byRow[rowCursor].empty()) {
             // pick the manTurn-th pawn in this row (mod row size)
             int idx = manTurn % byRow[rowCursor].size();
             result = byRow[rowCursor][idx];
             manTurn = (manTurn + 1) % byRow[rowCursor].size();
-            break;
+            found = true;
+        } else {
+            rowCursor = (rowCursor > 0 ? rowCursor - 1 : 12);
+            ++rowsChecked;
         }
-        rowCursor = (rowCursor > 0 ? rowCursor - 1 : 12);
-        rowsChecked++;
     }
 
     return result;
 }
+
 
 
 

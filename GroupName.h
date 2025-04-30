@@ -1,130 +1,203 @@
+/*
+ * Authors: Dakota Hernandez
+ * FileName: GroupName.h
+ * File Description: Implements Move_GroupName with separate logic for RED (tiger) and a placeholder for BLUE (men)
+ * Due Date: 05/04/2025
+ * Date Created: 04/22/2025
+ * Date Last Modified: 04/29/2025
+ */
 #ifndef GroupName_h
 #define GroupName_h
 
 #include <vector>
+#include <algorithm>
+#include <limits>
+#include <utility>
 #include "constants.h"
 
-// ------------- Helper Functions -------------
+using namespace std;
 
-// Check if a point is inside the 2×2 lair (rows 3–4, cols 3–4)
-static bool inLair(const Point_t& p) {
-    return p.row >= 3 && p.row <= 4
-        && p.col >= 3 && p.col <= 4;
+// ------------ Generic Helpers -------------
+
+/*
+ * description: check whether two points are the same
+ * return: bool
+ * precondition: points a and b are valid board positions
+ * postcondition: returns true if rows and columns match, false otherwise
+ */
+static bool samePoint(const Point_t& a, const Point_t& b) {
+    return a.row == b.row && a.col == b.col;
 }
 
-// Return true if the square is empty
-static bool isEmpty(const Point_t& p,
-                    const std::vector<Token_t>& state) {
-    if (p.row < 0 || p.row > 7 || p.col < 0 || p.col > 7)
-        return false;
-    for (const auto& t : state)
-        if (t.location.row == p.row && t.location.col == p.col)
-            return false;
+/*
+ * description: compute Manhattan distance between two points
+ * return: int
+ * precondition: points a and b are valid board positions
+ * postcondition: returns |a.row - b.row| + |a.col - b.col|
+ */
+static int manhattan(const Point_t& a, const Point_t& b) {
+    return abs(a.row - b.row) + abs(a.col - b.col);
+}
+
+/*
+ * description: check if a point lies inside the tiger’s lair
+ * return: bool
+ * precondition: point p is a valid board position
+ * postcondition: returns true if p is within rows 3–4 and cols 3–4, false otherwise
+ */
+static bool inLair(const Point_t& p) {
+    return p.row >= 3 && p.row <= 4 && p.col >= 3 && p.col <= 4;
+}
+
+/*
+ * description: determine if a board position is empty
+ * return: bool
+ * precondition: p within board bounds (0<=row<=12, 0<=col<=8), state contains valid tokens
+ * postcondition: returns true if no token occupies p, false otherwise
+ */
+static bool isEmpty(const Point_t& p, const vector<Token_t>& state) {
+    if (p.row < 0 || p.row > 12 || p.col < 0 || p.col > 8) return false;
+    for (auto& t : state) {
+        if (samePoint(t.location, p)) return false;
+    }
     return true;
 }
 
-// Return true if there's an opponent piece at p
-static bool isOpponent(const Point_t& p,
-                       Color_t turn,
-                       const std::vector<Token_t>& state) {
-    for (const auto& t : state)
-        if (t.location.row == p.row && t.location.col == p.col
-         && t.color != turn)
-            return true;
-    return false;
-}
+// ------------ Tiger (RED) Helpers -------------
 
-// ----------------- Move Generator -----------------
+/*
+ * description: generate all valid moves for the tiger
+ * return: vector<Move_t>
+ * precondition: state contains valid tokens with correct colors
+ * postcondition: returns moves into adjacent empty non-lair squares or capture jumps over BLUE tokens
+ */
+static vector<Move_t> getTigerValidMoves(const vector<Token_t>& state) {
+    vector<Move_t> valid;
+    const int dr[8] = {-1,-1,-1,0,1,1,1,0};
+    const int dc[8] = {-1,0,1,1,1,0,-1,-1};
 
-// Returns a vector of all legal Move_t (slides and captures) for 'turn'
-static std::vector<Move_t> getValidMoves(const std::vector<Token_t>& state,
-                                         Color_t turn) {
-    std::vector<Move_t> valid;
-    
-    // Collect tokens belonging to `turn`
-    std::vector<Token_t> mine;
-    for (const auto& t : state)
-        if (t.color == turn)
-            mine.push_back(t);
-
-    // Direction offsets
-    const int drO[4] = {-1, 1, 0, 0};
-    const int dcO[4] = { 0, 0,-1, 1};
-    const int drD[4] = {-1,-1, 1, 1}; // diagonals
-    const int dcD[4] = {-1, 1,-1, 1};
-
-    for (const auto& tok : mine) {
-        Point_t p = tok.location;
-        for (int i = 0; i < 4; ++i) {
-            Point_t adj{p.row + drO[i], p.col + dcO[i]};
-            // slide
-            if (isEmpty(adj, state)) {
+    for (auto& tok : state) {
+        if (tok.color != RED) continue;
+        for (int i = 0; i < 8; ++i) {
+            Point_t adj{tok.location.row + dr[i], tok.location.col + dc[i]};
+            if (isEmpty(adj, state) && !inLair(adj)) {
                 valid.push_back({tok, adj});
-            }
-            // jump-capture (tiger assumed RED)
-            else if (turn == RED && isOpponent(adj, turn, state)) {
-                Point_t land{p.row + 2*drO[i], p.col + 2*dcO[i]};
-                if (isEmpty(land, state))
-                    valid.push_back({tok, land});
-            }
-        }
-        if (inLair(p)) {
-            for (int i = 0; i < 4; ++i) {
-                Point_t adj{p.row + drD[i], p.col + dcD[i]};
-                if (isEmpty(adj, state)) {
-                    valid.push_back({tok, adj});
-                }
-                else if (turn == RED && isOpponent(adj, turn, state)) {
-                    Point_t land{p.row + 2*drD[i], p.col + 2*dcD[i]};
-                    if (isEmpty(land, state))
-                        valid.push_back({tok, land});
+            } else {
+                Point_t mid{adj};
+                Point_t land{tok.location.row + 2*dr[i], tok.location.col + 2*dc[i]};
+                if (isEmpty(land, state) && !inLair(land)) {
+                    for (auto& m : state) {
+                        if (samePoint(m.location, mid) && m.color == BLUE) {
+                            valid.push_back({tok, land});
+                            break;
+                        }
+                    }
                 }
             }
         }
     }
-
     return valid;
 }
 
-//TIGER
-// Find and return a capture move for the tiger, if any.
-// Sets foundCapture = true if a capture was found, otherwise false.
-static Move_t tigerCaptureMove(const std::vector<Move_t>& validMoves,
-                               const std::vector<Token_t>& state,
-                               bool& foundCapture) {
-    foundCapture = false;
-    for (const auto& move : validMoves) {
-        for (const auto& t : state) {
-            if (t.color == RED &&
-                t.location.row == move.token.location.row &&
-                t.location.col == move.token.location.col) {
-                int dRow = std::abs(move.destination.row - t.location.row);
-                int dCol = std::abs(move.destination.col - t.location.col);
-                if (dRow == 2 || dCol == 2) {
-                    foundCapture = true;
-                    return move;
-                }
+/*
+ * description: find the nearest BLUE token from a given point
+ * return: Point_t
+ * precondition: state contains at least one BLUE token, from is valid
+ * postcondition: returns location of the closest BLUE token (Manhattan distance)
+ */
+static Point_t findNearestMan(const vector<Token_t>& state, const Point_t& from) {
+    int best = numeric_limits<int>::max();
+    Point_t pick = from;
+    for (auto& t : state) {
+        if (t.color == BLUE) {
+            int d = manhattan(from, t.location);
+            if (d < best) {
+                best = d;
+                pick = t.location;
             }
         }
     }
-    return Move_t{}; // Return empty move if no capture found
+    return pick;
 }
 
+// ------------ Men (BLUE) Helpers -------------
 
-//MEN
+/*
+ * description: generate all valid moves for the men (BLUE)
+ * return: vector<Move_t>
+ * precondition: state contains valid tokens with correct colors
+ * postcondition: returns a list of single-step moves into empty, non-lair adjacent squares
+ */
+static vector<Move_t> getMenValidMoves(const vector<Token_t>& state) {
+    vector<Move_t> valid;
+    const int dr[8] = {-1, -1, -1,  0, 1, 1, 1,  0};
+    const int dc[8] = {-1,  0,  1,  1, 1, 0,-1, -1};
 
-
-// ----------------- AI Entry Point -----------------
-
-// This is the function called by the game engine
-static Move_t Move_GroupName(const std::vector<Token_t>& state,
-                             Color_t turn) {
-    auto validMoves = getValidMoves(state, turn);
-    // Use validMoves in AI logic; here we just return the first as a placeholder
-    if (!validMoves.empty())
-        return validMoves.front();
-    return Move_t{};
+    for (auto& tok : state) {
+        if (tok.color != BLUE) continue;
+        for (int i = 0; i < 8; ++i) {
+            Point_t adj{ tok.location.row + dr[i],
+                         tok.location.col + dc[i] };
+            if (isEmpty(adj, state) && !inLair(adj)) {
+                valid.push_back({ tok, adj });
+            }
+        }
+    }
+    return valid;
 }
 
-#endif /* GroupName_h */
+// ------------ Entry Point -------------
+
+/*
+ * description: choose and return the next move for the current turn
+ * return: Move_t
+ * precondition: state contains valid RED and BLUE tokens, turn is RED or BLUE
+ * postcondition: if RED, returns tiger’s move; if BLUE, placeholder empty move
+ */
+static Move_t Move_GroupName(const vector<Token_t>& state, Color_t turn) {
+    if (turn == RED) {
+        // locate tiger
+        Point_t start{-1,-1}; Token_t tiger{};
+        for (auto& t : state) {
+            if (t.color == RED) {
+                start = t.location;
+                tiger = t;
+                break;
+            }
+        }
+
+        // forced first three moves: exit lair
+        static int tigerMoveCount = 0;
+        if (tigerMoveCount < 3) {
+            Point_t dest = start;
+            if (tigerMoveCount == 0)      dest = {start.row + 1, start.col + 1};
+            else if (tigerMoveCount == 1) dest = {start.row + 1, start.col - 1};
+            else                          dest = {start.row + 1, start.col};
+            ++tigerMoveCount;
+            return {tiger, dest};
+        }
+
+        // choose move minimizing distance to nearest man
+        auto vm = getTigerValidMoves(state);
+        if (vm.empty()) return {};
+        int bestDist = numeric_limits<int>::max();
+        Move_t bestMove = vm.front();
+        for (auto& m : vm) {
+            Point_t target = findNearestMan(state, m.destination);
+            int d = manhattan(m.destination, target);
+            if (d < bestDist) {
+                bestDist = d;
+                bestMove = m;
+            }
+        }
+        return bestMove;
+    }
+    else if (turn == BLUE) {
+        // TODO: add BLUE/men move selection here
+    }
+
+    return {};
+}
+
+#endif // GroupName_h
 

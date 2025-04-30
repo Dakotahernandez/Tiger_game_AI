@@ -360,8 +360,50 @@ static Move_t moveTiger(const vector<Token_t>& state) {
     //STEP 5
     return result;
 }
-// ------------ Men (BLUE) Helpers -------------
-
+// ------------ Men (BLUE) -------------
+/*
+7:
+~@Y
+J@B.                .::.
+J@#:             :YB&&&#G?.
+Y@@~            :B@@@@@@@@G:
+J@&~            !@@@@@@@@@@!
+?@#^            Y@@@@@@@@@@P.
+7@#^            7B@@@@@@@@#J.
+?@@!             .5@@@@@@#^
+7@@!              ~@@@@@@Y
+:#B:            :!G@@@@@@#Y~.
+.BG.        :!JG&@@@@@@@@@@@#GPJ!.
+.BB.      7G&@@@@@@@@@@@@@@@@@@@@B~
+.BB.     ?@@@@@@@@@@@@@@@@@@@@@@@@#:
+.G#.    :#@@@@@@@@@@@@@@@@@@@@@@@@@7
+G#~    ?@@@@@@@@@@@@@@@@@@@@@@@@@@Y
+:Y&@@J  !&@@@@@@@@@@@@@@@@@@@@@@@@@@#:
+Y@@@@B.~&@@@@&B@@@@@@@@@@@@@@@@&@@@@@Y
+!#@@@&P#@@@@&!7@@@@@@@@@@@@@@@@PJ@@@@&!
+:B@&@@@@@@&7 !@@@@@@@@@@@@@@@@Y P@@@@#^
+G&!JG##B5~  7@@@@@@@@@@@@@@@@P ^&@@@@Y
+.G@~  ...    Y@@@@@@@@@@@@@@@@&^ 5@@@@B.
+P@~         P@@@@@@@@@@@@@@@@@B!:B@@@&^
+5@!        ~&@@@@@@@@@@@@@@@@@@? ^#@@@!
+5@!        Y@@@@@@@@@@@@@@@@@@@7  ^#@@Y
+5@7       :#@@@@@@@@@@@@@@@@@@@G.  ~#@G.
+5@7       :&@@@@@@@@@@@@@@@@@@@@!  .G@@~
+Y@?       7@@@@@@@@@@@@@@@@@@@@@Y  !@@@5
+Y@?      .P@@@@@@@@@@@@@@@@@@@@@#^ ~&G@&^
+Y@?      7@@@@@@@@@@@@@@@@@@@@@@@J ?&B&?
+Y@?      :G@@@@@@@@@@@@@@@@@@@@@&! .^~^
+J@?       7@@@@@@@@@BYP@@@@@@@@@?
+J@?       !@@@@@@@@@! :#@@@@@@@@~
+J@J       ~@@@@@@@@#:  5@@@@@@@@~
+?@J       :#@@@@@@@P   7@@@@@@@&^
+?@Y        P@@@@@@@?   ^&@@@@@@B.
+?@Y        Y@@@@@@B:    J@@@@@@G.
+?@5        5@@@@@&~      5@@@@@&^
+?@5       :#@@@@@&~      7@@@@@@J
+7@P       ?@@@@@@&~      !@@@@@@P
+7@P       J@@@@@@G.      ~&@@@@@G.
+ */
 /*
  * Authors:Dakota Hernandez
  * description: generate all valid moves for the men (BLUE)
@@ -370,16 +412,17 @@ static Move_t moveTiger(const vector<Token_t>& state) {
  * postcondition: returns a list of single-step moves into empty,
  *---------------- non-lair adjacent squares
  */
+// ------------ Men (BLUE) Helpers -------------
 static vector<Move_t> getMenValidMoves(const vector<Token_t>& state) {
     vector<Move_t> valid;
-    const int dr[8] = {-1, -1, -1,  0, 1, 1, 1,  0};
-    const int dc[8] = {-1,  0,  1,  1, 1, 0,-1, -1};
-    for(auto& tok : state){
-        bool isMan = (tok.color == BLUE);
-        if(isMan){
-            for(int i = 0; i < 8; ++i){
-                Point_t adj{tok.location.row + dr[i], tok.location.col + dc[i]};
-                if(isEmpty(adj, state) && !inLair(adj)){
+    const int dr[8] = { -1, -1, -1,  0, 1, 1, 1,  0 };
+    const int dc[8] = { -1,  0,  1,  1, 1, 0, -1, -1 };
+    for (auto& tok : state) {
+        if (tok.color == BLUE) {
+            for (int i = 0; i < 8; ++i) {
+                Point_t adj{ tok.location.row + dr[i],
+                             tok.location.col + dc[i] };
+                if (isEmpty(adj, state) && !inLair(adj)) {
                     valid.push_back({ tok, adj });
                 }
             }
@@ -388,17 +431,76 @@ static vector<Move_t> getMenValidMoves(const vector<Token_t>& state) {
     return valid;
 }
 
-
-
-// ------------ Men Move Extraction -------------
-
-static Move_t moveMen(const vector<Token_t>& state){
+// ------------ Men (BLUE) Move Extraction -------------
+// Only forward moves (one row up, same column), choosing from the
+// bottom‐most row that has any such move. No breaks/continues, single return.
+/*
+ * Authors: Dakota Hernandez
+ * description: encapsulates all BLUE‐turn (men) logic into one function
+ * return: Move_t
+ * precondition: state contains valid RED and BLUE tokens
+ * postcondition: returns the chosen men move
+ */
+/**
+ FULL EXPLANATION OF MEN MOVE LOGIC
+ STEP1)
+ *--------Calls getMenValidMoves(state) and filters to only single‐step forward moves (row–1, same column).
+ STEP2)
+ *--------Groups those forward moves by each man’s original row, so we know which pawns are on which ranks.
+ STEP3)
+ *--------Finds the bottom‐most row (highest row index) that has any forward move available.
+ STEP4)
+ *--------Within that row, selects pawns in a round‐robin fashion (using a static counter) to ensure each moves in turn.
+ STEP5)
+ *--------Ensures men advance together, never allowing any man to move more than one row ahead of the slowest pawn.
+ */
+static Move_t moveMen(const vector<Token_t>& state) {
     Move_t result{};
-    
-    //add yalls work here
-    
+    static int manTurn = 0;
+
+    // 1) Gather only single‐step forward moves
+    vector<Move_t> forwardMoves;
+    for (auto& m : getMenValidMoves(state)) {
+        if (m.destination.row == m.token.location.row - 1 &&
+            m.destination.col == m.token.location.col) {
+            forwardMoves.push_back(m);
+        }
+    }
+
+    // 2) Bucket these by their original row
+    vector<vector<Move_t>> byRow(13);
+    for (auto& m : forwardMoves) {
+        byRow[m.token.location.row].push_back(m);
+    }
+
+    // 3) Determine bottom‐most BLUE row
+    int maxRow = -1;
+    for (auto& t : state) {
+        if (t.color == BLUE && t.location.row > maxRow) {
+            maxRow = t.location.row;
+        }
+    }
+
+    // 4) From bottom up, pick the next pawn (round‐robin via manTurn)
+    int rowsChecked = 0;
+    int rowCursor = maxRow;
+    while (rowsChecked < 13) {
+        if (!byRow[rowCursor].empty()) {
+            // pick the manTurn-th pawn in this row (mod row size)
+            int idx = manTurn % byRow[rowCursor].size();
+            result = byRow[rowCursor][idx];
+            manTurn = (manTurn + 1) % byRow[rowCursor].size();
+            break;
+        }
+        rowCursor = (rowCursor > 0 ? rowCursor - 1 : 12);
+        rowsChecked++;
+    }
+
     return result;
 }
+
+
+
 // ------------ Entry Point -------------
 
 /*

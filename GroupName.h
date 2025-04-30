@@ -119,6 +119,97 @@ static Point_t findNearestMan(const vector<Token_t>& state, const Point_t& from)
     }
     return pick;
 }
+/*
+ * description: simulate a tiger move and check if it results in no further legal moves
+ * return: bool
+ * precondition: mv.origin is a RED token in the provided state
+ * postcondition: returns true if, after applying mv (including removing any jumped BLUE), the tiger has zero valid moves
+ */
+static bool leadsToTrap(const Move_t& mv, const vector<Token_t>& state) {
+    // 1) build a copy of the board
+    vector<Token_t> next = state;
+
+    // 2) find & update the tiger’s token
+    for (auto& t : next) {
+        if (t.color == RED && samePoint(t.location, mv.token.location)) {
+            t.location = mv.destination;
+            break;
+        }
+    }
+
+    // 3) if this was a capture, remove the jumped‐over man
+    int dr = mv.destination.row - mv.token.location.row;
+    int dc = mv.destination.col - mv.token.location.col;
+    if (abs(dr) == 2 || abs(dc) == 2) {
+        Point_t mid{
+            mv.token.location.row + dr/2,
+            mv.token.location.col + dc/2
+        };
+        next.erase(
+            remove_if(
+                next.begin(), next.end(),
+                [&](auto& x){ return x.color == BLUE && samePoint(x.location, mid); }
+            ),
+            next.end()
+        );
+    }
+
+    // 4) if the tiger now has no valid moves, it’s trapped
+    return getTigerValidMoves(next).empty();
+}
+
+/*
+ * description: compute the maximum number of sequential capture jumps the tiger can make from a given position
+ * return: int
+ * precondition: pos is the current location of a RED token; state contains valid RED and BLUE tokens
+ * postcondition: returns the highest count of BLUE tokens the tiger can capture in a single move sequence
+ */
+static int bestJumpCount(const Point_t& pos, vector<Token_t> state) {
+    // place the tiger at the new position
+    for (auto& t : state) {
+        if (t.color == RED) {
+            t.location = pos;
+            break;
+        }
+    }
+
+    int maxJumps = 0;
+    const int dr[8] = {-1,-1,-1, 0, 1, 1, 1, 0};
+    const int dc[8] = {-1, 0,  1, 1, 1, 0,-1,-1};
+
+    // try each direction for a possible jump
+    for (int i = 0; i < 8; ++i) {
+        Point_t mid{ pos.row + dr[i],        pos.col + dc[i] };
+        Point_t land{ pos.row + 2*dr[i], pos.col + 2*dc[i] };
+
+        // can only jump if landing square is empty, not in lair, and there's a BLUE at mid
+        if (isEmpty(land, state) && !inLair(land)) {
+            bool hasMan = false;
+            for (auto& u : state) {
+                if (u.color == BLUE && samePoint(u.location, mid)) {
+                    hasMan = true;
+                    break;
+                }
+            }
+            if (!hasMan) continue;
+
+            // simulate the jump: remove the captured BLUE
+            vector<Token_t> nextState;
+            nextState.reserve(state.size());
+            for (auto& u : state) {
+                if (!(u.color == BLUE && samePoint(u.location, mid))) {
+                    nextState.push_back(u);
+                }
+            }
+
+            // recurse from the landing spot
+            int jumps = 1 + bestJumpCount(land, nextState);
+            maxJumps = max(maxJumps, jumps);
+        }
+    }
+
+    return maxJumps;
+}
 
 // ------------ Men (BLUE) Helpers -------------
 
@@ -157,11 +248,12 @@ static vector<Move_t> getMenValidMoves(const vector<Token_t>& state) {
 static Move_t Move_GroupName(const vector<Token_t>& state, Color_t turn) {
     if (turn == RED) {
         // locate tiger
-        Point_t start{-1,-1}; Token_t tiger{};
+        Point_t start{-1,-1};
+        Token_t tigerToken{};
         for (auto& t : state) {
             if (t.color == RED) {
-                start = t.location;
-                tiger = t;
+                start      = t.location;
+                tigerToken = t;
                 break;
             }
         }
@@ -174,28 +266,38 @@ static Move_t Move_GroupName(const vector<Token_t>& state, Color_t turn) {
             else if (tigerMoveCount == 1) dest = {start.row + 1, start.col - 1};
             else                          dest = {start.row + 1, start.col};
             ++tigerMoveCount;
-            return {tiger, dest};
+            return {tigerToken, dest};
         }
 
-        // choose move minimizing distance to nearest man
-        auto vm = getTigerValidMoves(state);
-        if (vm.empty()) return {};
-        int bestDist = numeric_limits<int>::max();
-        Move_t bestMove = vm.front();
-        for (auto& m : vm) {
-            Point_t target = findNearestMan(state, m.destination);
-            int d = manhattan(m.destination, target);
-            if (d < bestDist) {
-                bestDist = d;
-                bestMove = m;
-            }
+        // collect and score candidates (multi-jump + trap avoidance)
+        struct Candidate { Move_t mv; int jumpCount; int dist; };
+        vector<Candidate> cands;
+        for (auto& m : getTigerValidMoves(state)) {
+            int jumps = bestJumpCount(m.token.location, state);
+            if (leadsToTrap(m, state))
+                continue;
+            Point_t nearest = findNearestMan(state, m.destination);
+            int d = manhattan(m.destination, nearest);
+            cands.push_back({m, jumps, d});
         }
-        return bestMove;
+
+        if (cands.empty())
+            return {};
+
+        // sort by highest jumpCount, then shortest distance to nearest man
+        sort(cands.begin(), cands.end(), [](const Candidate& a, const Candidate& b){
+            if (a.jumpCount != b.jumpCount)
+                return a.jumpCount > b.jumpCount;
+            return a.dist < b.dist;
+        });
+
+        return cands.front().mv;
     }
     else if (turn == BLUE) {
-        // TODO: add BLUE/men move selection here
+        return {};
     }
 
+    // fallback
     return {};
 }
 

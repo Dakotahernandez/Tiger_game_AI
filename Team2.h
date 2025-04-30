@@ -236,6 +236,10 @@ static int bestJumpCount(const Point_t& pos, vector<Token_t> state){
  * precondition: state contains valid RED and BLUE tokens
  * postcondition: returns the chosen tiger move
  */
+/*
+ FULL EXPLANATION OF TIGER MOVE LOGIC
+ 
+ */
 static Move_t moveTiger(const vector<Token_t>& state) {
     static int tigerMoveCount = 0;
     Move_t result{};

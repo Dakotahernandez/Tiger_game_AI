@@ -4,15 +4,15 @@
  *----------Chase Caldwell
  *----------Larry OConnor
  *----------Xiangyu_Wu
- * FileName: GroupName.h
+ * FileName: Team2.h
  * File Description: Implements Move_GroupName with separate logic for RED
  *-------------------(tiger) and a placeholder for BLUE (men)
  * Due Date: 05/04/2025
  * Date Created: 04/22/2025
  * Date Last Modified: 04/29/2025
  */
-#ifndef GroupName_h
-#define GroupName_h
+#ifndef Team2_h
+#define Team2_h
 
 #include <vector>
 #include <algorithm>
@@ -80,7 +80,34 @@ static bool isEmpty(const Point_t& p, const vector<Token_t>& state){
 }
 
 // ------------ Tiger (RED) -------------
+/*
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&#G555G#&&#G555G#&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@&GJ!~!7?JJJ?7~~7?JJJ?7!~!JG&@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@&J7?YPGPY7~~7Y55J7~:::!JPPJ!:::~7J55Y7~~!YPGPY?7J&@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@& 75Y?777J5P5?^.   .::.      .::.   .^?5P5J777?Y57 &@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@# 5GGPJ7~^:.    .^!7?YPG5775GPY?7!^.    .:^~7JPGG5 #@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@7.PGGGGY!:  .~~^:.    :7PP7:    .:^~~.  :!YGGGGP.7@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@?.?PGGP7. !PJ!~~^^.          .^^~~!JP! .7PGGP?.?@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@P !GG7.  :         ^J5??5J^         :  .7GG! P@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@7.7GP:    ~.  ??7^    .??.    ^7??  .~    :PG7.7@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@~ JG55?.  !B! .:!Y5~        ~5Y!:. !B!  .?5PGJ ~@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@#:.J5GG^     ^J:  :.^5.      .5^.:  :J^     ^GG5J.:#@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@&B7 !G~..   ~!.      .        .      .!~   ..~G! 7B&@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@.~GG57   . YG7.   7:        :7   .7GY .   75GG~.@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@G PGGY .?7  5GY:   !Y7J?~~?J7Y!   :YG5  7?. YGGP G@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@# YGG!:GY   ~B57~:.   :?GG?:   .:~75B~   YG:!GGY #@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@? GG5PG:    ^PGJ^.     55     .^JGP^    :GP5GP ?@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@# YGGGG: ^P7  :!5J :??PGGP??: J5!:  7P^ :GGGGY #@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@!.PGGGJ~BGG^!J^:G~Y7 .!!. 7J~G:^J!^GGB~JGGGP.!@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@J.7PGGGYPGGBGG.!BPP.    .PPB!.GGBGGPYGGGP7.J@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@&?^~J~ JBP?PGY P^~Y~^^~Y~^P YGP?PBJ ~J~^?&@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@#Y~7.J: ?GG^.7~~~~~~~~7.^GG? :J.7~Y#@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@&~^7 PBP. ..::::.. .PBP 7^~&@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@7.7PG5?!~^^~!?5GP7.7@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&Y~~!7?JJJJ?7!~~Y&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@&BP5555PB&@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+ */
 /*
  * Authors:Dakota Hernandez Sofia Amador
  * description: generate all valid moves for the tiger
@@ -230,16 +257,35 @@ static int bestJumpCount(const Point_t& pos, vector<Token_t> state){
 // ------------ Tiger Move Extraction -------------
 
 /*
- * Authors:Dakota Hernandez Sofia Amador
+ * Authors: Dakota Hernandez, Sofia Amador
  * description: encapsulates all RED-turn logic into one function
  * return: Move_t
  * precondition: state contains valid RED and BLUE tokens
  * postcondition: returns the chosen tiger move
  */
-/*
+/**
  FULL EXPLANATION OF TIGER MOVE LOGIC
- 
+ STEP1)
+ *--------Uses a static variable to keep track of how many moves the tiger has made so far.
+ *--------Manually moves the tiger for the first 3 moves to get out of the lair
+ *--------lair rules complicate early movement, so we drive it out before applying full logic.
+ STEP 2)
+ *--------Calls getTigerValidMoves(state) to list every legal step and capture jump,
+ *--------then runs leadsToTrap(m, state) on each to simulate dropping any jumped BLUE and
+ *-------- ensure the tiger still has follow-up moves—any move that would strand it is discarded.
+ STEP 3)
+ *--------For each remaining move, computes bestJumpCount from the landing square to find the
+ *--------maximum chain-capture length, and uses findNearestMan + manhattan distance to score how
+ *-------- close the tiger stays to its prey; these become the move’s jumpCount and dist metrics.
+ STEP 4)
+ *--------Sorts the surviving candidates by highest jumpCount (maximize captures) and then by lowest dist
+ *--------(stay near enemies), then selects the front of that sorted list as the chosen move.
+ STEP 5)
+ *--------If no non-trapping candidates survive, falls back to the raw list from getTigerValidMoves and
+ *--------returns its first element (or a default Move_t if empty),
+ *-------- guaranteeing moveTiger always retyrns  a valid Move_t.
  */
+
 static Move_t moveTiger(const vector<Token_t>& state) {
     static int tigerMoveCount = 0;
     Move_t result{};
@@ -252,6 +298,7 @@ static Move_t moveTiger(const vector<Token_t>& state) {
             tigerToken = t;
         }
     }
+    //STEP 1)
     if (tigerMoveCount < 3) {
         Point_t dest = start;
         if(tigerMoveCount == 0){
@@ -265,6 +312,7 @@ static Move_t moveTiger(const vector<Token_t>& state) {
         result = {tigerToken, dest};
         tigerMoveCount++;
     }else{
+        //STEP 2
         struct Candidate{
             Move_t mv; int jumpCount; int dist;
         };
@@ -288,6 +336,7 @@ static Move_t moveTiger(const vector<Token_t>& state) {
                     ), nextState.end()
                 );
             }
+            //STEP 3
             if(!trap){
                 int jumps = bestJumpCount(m.destination, nextState);
                 Point_t nearest = findNearestMan(state, m.destination);
@@ -295,6 +344,7 @@ static Move_t moveTiger(const vector<Token_t>& state) {
                 cands.push_back({m, jumps, d});
             }
         }
+        //STEP 4
         if(!cands.empty()){
             sort(
                  cands.begin(), cands.end(),[]
@@ -307,6 +357,7 @@ static Move_t moveTiger(const vector<Token_t>& state) {
             result = cands.front().mv;
         }
     }
+    //STEP 5
     return result;
 }
 // ------------ Men (BLUE) Helpers -------------
@@ -367,5 +418,5 @@ static Move_t Move_GroupName(const vector<Token_t>& state, Color_t turn){
     return result;
 }
 
-#endif // GroupName_h
+#endif /* Team2_h */
 

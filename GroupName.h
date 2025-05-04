@@ -36,6 +36,27 @@ static bool samePoint(const Point_t& a, const Point_t& b) {
     return a.row == b.row && a.col == b.col;
 }
 
+/*
+ * Authors: Dannis Wu
+ * description: checks whether two points are not the same
+ * return: bool
+ * precondition: points a and b are valid board positions
+ * postcondition: returns true if either the row or column differs, false otherwise
+ */
+inline bool operator!=(const Point_t& a, const Point_t& b) {
+    return !(a.row == b.row && a.col == b.col);
+}
+/*
+ * Authors: Dannis Wu
+ * description: defines less-than comparison between two points using row and column
+ * return: bool
+ * precondition: points a and b are valid board positions
+ * postcondition: returns true if (a.row, a.col) is lexicographically less than (b.row, b.col)
+ */
+inline bool operator<(const Point_t& a, const Point_t& b) {
+    return std::tie(a.row, a.col) < std::tie(b.row, b.col);
+}
+
 static Point_t tigerLastSeen{-1, -1}; //knowing Tiger position for helping men make assumption
 
 /*

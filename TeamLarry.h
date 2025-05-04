@@ -657,17 +657,13 @@ static bool isWinInTwo(const Move_t &m, const vector<Token_t> &state) {
  * precondition: state contains valid tokens with correct colors
  * postcondition: returns the calculated score
  */
-static double getMenMoveScore(
-        const Move_t& m,
-        const Point_t& targetCorner,
-        const vector<Token_t>& state
-) {
+static double getMenMoveScore(const Move_t& move, const Point_t& targetCorner, const vector<Token_t>& state){
     //NOTE: these can be adjusted
-    const double mult_corner = 1.2;
+    const double mult_corner = 1.3;
     const double mult_rowTightness = 1.2;
-    const double mult_colTightness = 0.8;
+    const double mult_colTightness = 0.6;
     const double mult_tigerMobility = 1.6;
-    const double mult_far = 0.4;
+    const double mult_far = 0.35;
     const double mult_closer = 1.0;
     const double mult_trapBonus = 75.0; //added this in case win in one logic messed up
 
@@ -676,8 +672,8 @@ static double getMenMoveScore(
 
     vector<Token_t> sim = state;
     for(Token_t& token : sim) {
-        if(token.color == BLUE && samePoint(token.location, m.token.location)) {
-            token.location = m.destination;
+        if(token.color == BLUE && samePoint(token.location, move.token.location)) {
+            token.location = move.destination;
             break;
         }
     }
@@ -689,10 +685,10 @@ static double getMenMoveScore(
     int newTigerMobility   = tigerCaptureMobility(sim);
     bool trapped = (newTigerMobility == 0);
 
-    double menDistance = manhattan(m.token.location, tigerPos);
+    double menDistance = manhattan(move.token.location, tigerPos);
 
-    double oldMenDist = manhattan(m.token.location, tigerPos);
-    double newMenDist = manhattan(m.destination,    tigerPos);
+    double oldMenDist = manhattan(move.token.location, tigerPos);
+    double newMenDist = manhattan(move.destination,    tigerPos);
     double menDistChange = oldMenDist - newMenDist;
 
     return  (mult_corner * deltaCorner
@@ -779,8 +775,8 @@ static Move_t moveMen(const vector<Token_t>& state) {
 
 
 // ------------ Men (BLUE) Move Extraction -------------
-// Only forward moves (one row up, same column), choosing from the
-// bottom‐most row that has any such move. No breaks/continues, single return.
+// Selects the best move by removing suicidal moves, then
+// each remaining move is scored and the best move is selected
 /*
  * Authors: Larry O'Connor
  * description: encapsulates all BLUE‐turn (men) logic into one function

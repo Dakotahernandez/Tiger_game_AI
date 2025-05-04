@@ -817,6 +817,180 @@ static Move_t moveMen(const vector<Token_t>& state) {
 */
 
 
+//-----Entry Point---------
+/* Another strategy for moveMen with a tiger threat map
+ 
+ Author: Chase Caldwell
+ * Description: This function handles the strategy for BLUE (men) moves.
+ *              It moves two men in a column together step-by-step (like a team),
+ *              blocks the tiger smartly, and tries to trap it in a corner if possible.
+ *              The only "weakness" of this strategy is that it's hard to defend against
+ *              tiger attacks from diagonal directions.
+ * Return: Move_t – the selected move for this turn
+ * Precondition: state includes valid RED and BLUE tokens on the board
+ * Postcondition: returns one valid and strategic BLUE move
+
+static Move_t moveMen(const vector<Token_t>& state) {
+    Move_t result{};
+    static int colCursor = 0;                  // Which column to try moving next
+    static map<int, int> colStage;             // 0 = move top man, 1 = move bottom man
+    static map<int, int> colDirection;         // -1 = move up, 1 = move down
+
+    Point_t tigerPos = tigerLastSeen;
+
+    // === 1. Group BLUE tokens by column ===
+    map<int, vector<Point_t>> colMap;
+    for (const auto& tok : state) {
+        if (tok.color == BLUE) {
+            colMap[tok.location.col].push_back(tok.location);
+        }
+    }
+    for (auto& [col, vec] : colMap) {
+        sort(vec.begin(), vec.end(), [](const Point_t& a, const Point_t& b) {
+            return a.row < b.row;
+        });
+    }
+
+    // === 2. All valid BLUE moves ===
+    vector<Move_t> allMoves = getMenValidMoves(state);
+
+    // === 3. Only vertical moves (step-by-step) ===
+    map<int, vector<Move_t>> colMoves;
+    for (const auto& m : allMoves) {
+        if (m.destination.col == m.token.location.col &&
+            abs(m.destination.row - m.token.location.row) == 1) {
+            colMoves[m.token.location.col].push_back(m);
+        }
+    }
+
+    // === 4. Decide movement direction based on tiger position ===
+    for (const auto& [col, men] : colMap) {
+        if (men.size() == 2) {
+            int lowRow = max(men[0].row, men[1].row);
+            int highRow = min(men[0].row, men[1].row);
+            if ((tigerPos.row >= lowRow + 2) || (abs(tigerPos.col - col) >= 2 && tigerPos.row > lowRow)) {
+                colDirection[col] = 1;  // move down
+            } else if (tigerPos.row <= highRow - 2) {
+                colDirection[col] = -1; // move up
+            } else if (!colDirection.count(col)) {
+                colDirection[col] = -1; // default up
+            }
+        }
+    }
+
+    // === 5. Sort columns by priority ===
+    vector<int> colOrder;
+    for (const auto& [col, men] : colMap) {
+        if (men.size() == 2) colOrder.push_back(col);
+    }
+    sort(colOrder.begin(), colOrder.end(), [&](int a, int b) {
+        const auto& va = colMap[a], vb = colMap[b];
+        int pa = (colDirection[a] == -1) ? max(va[0].row, va[1].row) : -min(va[0].row, va[1].row);
+        int pb = (colDirection[b] == -1) ? max(vb[0].row, vb[1].row) : -min(vb[0].row, vb[1].row);
+        return pa < pb;
+    });
+
+    // === 6. Attempt moving in round-robin order by column and man-pair stage ===
+    int tries = 0;
+    while (tries < (int)colOrder.size()) {
+        int col = colOrder[colCursor % colOrder.size()];
+        auto& men = colMap[col];
+        int dir = colDirection[col];
+        if (men.size() == 2 && colMoves.count(col)) {
+            sort(men.begin(), men.end(), [](const Point_t& a, const Point_t& b) {
+                return a.row < b.row;
+            });
+            int stage = colStage[col];
+            Point_t src = (dir == -1) ? men[stage] : men[1 - stage];
+            Point_t dst = {src.row + dir, src.col};
+
+            for (const auto& m : colMoves[col]) {
+                if (m.token.location == src && m.destination == dst) {
+                    result = m;
+                    colStage[col] = (colStage[col] + 1) % 2;
+                    if (colStage[col] == 0) colCursor = (colCursor + 1) % colOrder.size();
+                    return result;
+                }
+            }
+        }
+        colCursor = (colCursor + 1) % colOrder.size();
+        ++tries;
+    }
+
+    // === 7. Create a tiger threat map.===
+    set<Point_t> tigerThreats;
+    for (const auto& move : getTigerValidMoves(state)) {
+        int dr = move.destination.row - move.token.location.row;
+        int dc = move.destination.col - move.token.location.col;
+        if (abs(dr) == 2 || abs(dc) == 2) {
+            tigerThreats.insert(move.destination);
+        }
+    }
+
+    // === 8. is safe move ===
+    auto isSafeMove = [&](const Move_t& m) {
+        if (tigerThreats.count(m.destination)) return false;
+        for (const auto& t : state) {
+            if (t.color == BLUE && t.location != m.token.location &&
+                abs(t.location.row - m.destination.row) <= 1 &&
+                abs(t.location.col - m.destination.col) <= 1) {
+                return true;  // has nearby ally
+            }
+        }
+        return false;
+    };
+
+    // === 9. Block tiger’s next steps ===
+    vector<Point_t> tigerNext;
+    for (const auto& move : getTigerValidMoves(state)) {
+        tigerNext.push_back(move.destination);
+    }
+    for (const auto& m : allMoves) {
+        for (const auto& t : tigerNext) {
+            if (abs(m.destination.row - t.row) <= 1 && abs(m.destination.col - t.col) <= 1) {
+                if (isSafeMove(m)) return m;
+            }
+        }
+    }
+
+    // === 10. Defensive fallback ===
+    sort(allMoves.begin(), allMoves.end(), [&](const Move_t& a, const Move_t& b) {
+        int da = manhattan(a.destination, tigerPos);
+        int db = manhattan(b.destination, tigerPos);
+        return da < db;
+    });
+    for (const auto& m : allMoves) {
+        if (isSafeMove(m)) return m;
+    }
+
+    // === 11. Final fallback. fill lost columns via horizontal moves ===
+    for (int lostCol = 0; lostCol < 9; ++lostCol) {
+        if (!colMap.count(lostCol)) {
+            for (int dcol : {-1, 1}) {
+                int neighborCol = lostCol + dcol;
+                if (colMap.count(neighborCol)) {
+                    for (const auto& m : allMoves) {
+                        if (m.token.location.col == neighborCol &&
+                            m.destination.col == lostCol &&
+                            m.destination.row == m.token.location.row &&
+                            isSafeMove(m)) {
+                            return m;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // === 12. last resort ===
+    if (!allMoves.empty()) return allMoves[0];
+
+    return result;
+}
+
+*/
+
+
 
 
 

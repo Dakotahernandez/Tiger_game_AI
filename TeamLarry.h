@@ -432,22 +432,17 @@ J@J       ~@@@@@@@@#:  5@@@@@@@@~
  * postcondition: returns a list of single-step moves into empty,
  *---------------- non-lair adjacent squares
  */
-static vector<Move_t> getMenValidMoves(const vector<Token_t>& state, BearGame& game) {
-
+static vector<Move_t> getMenValidMoves(const vector<Token_t>& state) {
     vector<Move_t> valid;
-
-    for(Token_t token: state) {
-        if(token.color != BLUE) continue;
-
-        Point p1{ token.location.row, token.location.col };
-
-        for(int dr = -1; dr <= 1; ++dr) {
-            for(int dc = -1; dc <= 1; ++dc) {
-                if(dr == 0 && dc == 0) continue;
-                Point p2{ p1.x + dr, p1.y + dc };
-                int m = game.legalMove(p1, p2);
-                if(m == GOOD_MOVE) {
-                    valid.push_back({token, Point_t{ p2.x, p2.y }});
+    const int dr[4] = {-1, 0, 1, 0};
+    const int dc[4] = {0, 1, 0,-1};
+    for (Token_t token : state) {
+        if(token.color == BLUE) {
+            Point_t from = token.location;
+            for (int i = 0; i < 4; ++i) {
+                Point_t location{from.row + dr[i], from.col + dc[i]};
+                if (isEmpty(location, state) && !inLair(location)) {
+                    valid.push_back({token, location});
                 }
             }
         }
@@ -460,7 +455,7 @@ static vector<Move_t> getMenValidMoves(const vector<Token_t>& state, BearGame& g
  * description: check if a move is an undo of previous move
  * return: bool
  * precondition: valid move
- * postcondition: returns true is move is undo
+ * postcondition: returns true is move is an undo
  */
 bool isMoveUndo(const Move_t &move) {
     return samePoint(move.token.location, lastMenMove.destination)
@@ -611,7 +606,7 @@ static bool isWinInOne(const Move_t &move, const vector<Token_t> &state) {
  * precondition: state contains valid tokens with correct colors
  * postcondition: returns whether move is win in two
  */
-static bool isWinInTwo(const Move_t &m, const vector<Token_t> &state, BearGame &game) {
+static bool isWinInTwo(const Move_t &m, const vector<Token_t> &state) {
 
     vector<Token_t> sim1 = state;
     bool canWinNext = false;
@@ -641,7 +636,7 @@ static bool isWinInTwo(const Move_t &m, const vector<Token_t> &state, BearGame &
                 return x.color == BLUE && samePoint(x.location, mid);
             }), sim2.end());
         }
-        for(Move_t& move2 : getMenValidMoves(sim2, game)) {
+        for(Move_t& move2 : getMenValidMoves(sim2)) {
             if(isWinInOne(move2, sim2)) {
                 canWinNext = true;
                 break;
@@ -735,13 +730,13 @@ static double getMenMoveScore(
  STEP5)
  *--------Ensures men advance together, never allowing any man to move more than one row ahead of the slowest pawn.
  */
-static Move_t moveMen(const vector<Token_t>& state, BearGame& game) {
+static Move_t moveMen(const vector<Token_t>& state) {
     Move_t result{};
     static int manTurn = 0;
 
     // 1) Gather only single‐step forward moves
     vector<Move_t> forwardMoves;
-    for (auto& m : getMenValidMoves(state, game)) {
+    for (auto& m : getMenValidMoves(state)) {
         if (m.destination.row == m.token.location.row - 1 &&
             m.destination.col == m.token.location.col) {
             forwardMoves.push_back(m);
@@ -812,7 +807,7 @@ STEP6)
  *-------- return the decided best move
  *
  */
-static Move_t moveMenUpdated(const vector<Token_t>& state, BearGame& game) {
+static Move_t moveMenUpdated(const vector<Token_t>& state) {
 
     //Data Abstraction:
 
@@ -825,14 +820,14 @@ static Move_t moveMenUpdated(const vector<Token_t>& state, BearGame& game) {
     double bestScore = -99999;
 
     //STEP 2: Get valid moves & check if there is a win in two or less
-    vector<Move_t> validMenMoves = getMenValidMoves(state, game);
+    vector<Move_t> validMenMoves = getMenValidMoves(state);
     for(Move_t move: validMenMoves){
         if(isWinInOne(move,state)){
             return move;
         }
     }
     for(Move_t move: validMenMoves){
-        if(isWinInTwo(move,state,game)){
+        if(isWinInTwo(move,state)){
             return move;
         }
     }
@@ -875,7 +870,7 @@ static Move_t moveMenUpdated(const vector<Token_t>& state, BearGame& game) {
     double bestSpan = numeric_limits<double>::infinity();
     for(Move_t& move : tiedMoves) {
         vector<Token_t> sim = state;
-        for(Token_t& token : sim) {
+        for(Token_t& token : sim){
             if(token.color == BLUE && samePoint(token.location, move.token.location)) {
                 token.location = move.destination;
                 break;
@@ -904,12 +899,12 @@ static Move_t moveMenUpdated(const vector<Token_t>& state, BearGame& game) {
  * precondition: state contains valid RED and BLUE tokens, turn is RED or BLUE
  * postcondition:if RED, delegates to moveTiger; if BLUE, placeholder empty move
  */
-static Move_t Move_Team2(const vector<Token_t>& state, Color_t turn, BearGame& game){
+static Move_t Move_Team2(const vector<Token_t>& state, Color_t turn){
     Move_t result{};
     if(turn == RED){
         result = moveTiger(state);
     }else{
-        result = moveMenUpdated(state, game);
+        result = moveMenUpdated(state);
     }
     return result;
 }

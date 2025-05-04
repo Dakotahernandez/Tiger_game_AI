@@ -98,7 +98,7 @@ class BearGame{
                 pause = false;
                 token[0].setColor(RED);
                 token[0].setAttached(false);
-                token[0].setLocation(Point(columnToX(4), rowToY(2)));
+                token[0].setLocation(Point(columnToX(1), rowToY(3)));// It's the center of the lair, not(4,2)
 
                 int i =1;
                 for(int r = 11; r < GRID_ROW; r++){

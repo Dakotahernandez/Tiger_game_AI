@@ -714,8 +714,8 @@ static double getMenMoveScore(const Move_t& move, const Point_t& targetCorner, c
     const double mult_colTightness = 1.0;
     const double mult_tigerMobility = 2.0;
     const double mult_far = 0.2;
-    const double mult_closer = 1.1;
-    const double mult_towardBonus = 0.5;
+    const double mult_closer = 1.15;
+    const double mult_towardBonus = 0.4;
 
     Point_t tigerPos = getTigerToken(state).location;
     int oldDist = manhattan(tigerPos, targetCorner);
@@ -979,7 +979,7 @@ static Move_t moveMenUpdated(const vector<Token_t>& state) {
                 break;
             }
         }
-        double span = getMenRowTightness(sim) - getMenColTightness(sim)*0.75;
+        double span = getMenRowTightness(sim)*1.0-getMenColTightness(sim)*1.0;
         if(span < bestSpan) {
             bestSpan = span;
             best = move;

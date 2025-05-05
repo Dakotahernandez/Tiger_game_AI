@@ -1014,4 +1014,3 @@ static Move_t Move_Team2(const vector<Token_t>& state, Color_t turn){
 
 
 #endif /* Team2_h */
-

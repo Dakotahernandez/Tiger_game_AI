@@ -23,6 +23,7 @@
 
 using namespace std;
 
+//larry stuff
 static Move_t lastMenMove;
 static Point_t menMoveHistory[4] = {{-1,-1},{-1,-1},{-1,-1},{-1,-1}};
 static int menMoveHistoryIndex = 0;
@@ -39,29 +40,6 @@ static int menMoveHistoryIndex = 0;
 static bool samePoint(const Point_t& a, const Point_t& b) {
     return a.row == b.row && a.col == b.col;
 }
-
-/*
- * Authors: Dannis Wu
- * description: checks whether two points are not the same
- * return: bool
- * precondition: points a and b are valid board positions
- * postcondition: returns true if either the row or column differs, false otherwise
- */
-inline bool operator!=(const Point_t& a, const Point_t& b) {
-    return !(a.row == b.row && a.col == b.col);
-}
-/*
- * Authors: Dannis Wu
- * description: defines less-than comparison between two points using row and column
- * return: bool
- * precondition: points a and b are valid board positions
- * postcondition: returns true if (a.row, a.col) is lexicographically less than (b.row, b.col)
- */
-inline bool operator<(const Point_t& a, const Point_t& b) {
-    return std::tie(a.row, a.col) < std::tie(b.row, b.col);
-}
-
-static Point_t tigerLastSeen{-1, -1}; //knowing Tiger position for helping men make assumption
 
 /*
  * Authors:Dakota Hernandez Sofia Amador
@@ -107,8 +85,9 @@ static bool isEmpty(const Point_t& p, const vector<Token_t>& state){
     return ok;
 }
 
+
 /*
- * Authors: Larry O'Connor & Dakota Hernandez
+ * Authors: Larry O'Connor
  * description: return the tiger token
  * return: Token_t
  * precondition: state contains valid tokens with correct colors
@@ -165,8 +144,8 @@ static Token_t getTigerToken(vector<Token_t> state) {
 static vector<Move_t> getTigerValidMoves(const vector<Token_t>& state){
     vector<Move_t> valid;
     size_t menLeft = count_if(
-            state.begin(), state.end(),
-            [](auto& t){ return t.color == BLUE;}
+        state.begin(), state.end(),
+        [](auto& t){ return t.color == BLUE;}
     );
     const int dr[8] = {-1,-1,-1,0,1,1,1,0};
     const int dc[8] = {-1,0,1,1,1,0,-1,-1};
@@ -175,15 +154,15 @@ static vector<Move_t> getTigerValidMoves(const vector<Token_t>& state){
         if(isTiger) {
             for(int i = 0; i < 8; ++i){
                 Point_t adj{
-                        tok.location.row +
-                        dr[i], tok.location.col + dc[i] };
+                    tok.location.row +
+                    dr[i], tok.location.col + dc[i] };
                 if(isEmpty(adj, state) && (!inLair(adj) || menLeft <= 3)){
                     valid.push_back({tok, adj});
                 }else{
                     Point_t land{
-                            tok.location.row +
-                            2*dr[i], tok.location.col
-                                     + 2*dc[i] };
+                        tok.location.row +
+                        2*dr[i], tok.location.col
+                        + 2*dc[i] };
                     if(isEmpty(land, state) && (!inLair(land) || menLeft <= 3)){
                         Point_t mid{ adj };
                         for(auto& m : state){
@@ -207,9 +186,9 @@ static vector<Move_t> getTigerValidMoves(const vector<Token_t>& state){
  * postcondition: returns location of the closest BLUE token (Manhattan distance)
  */
 static Point_t findNearestMan(
-        const vector<Token_t>& state,
-        const Point_t& from
-){
+                              const vector<Token_t>& state,
+                              const Point_t& from
+                              ){
     int best = numeric_limits<int>::max();
     Point_t pick = from;
     for(auto& t : state){
@@ -245,10 +224,10 @@ static bool leadsToTrap(const Move_t& mv, const vector<Token_t>& state){
     if(abs(dr) == 2 || abs(dc) == 2){
         Point_t mid{ mv.token.location.row + dr/2, mv.token.location.col + dc/2 };
         next.erase(
-                remove_if(
-                        next.begin(), next.end(),
-                        [&](auto& x){ return x.color == BLUE && samePoint(x.location, mid); }
-                ), next.end()
+            remove_if(
+                next.begin(), next.end(),
+                [&](auto& x){ return x.color == BLUE && samePoint(x.location, mid); }
+            ), next.end()
         );
     }
     return getTigerValidMoves(next).empty();
@@ -336,19 +315,26 @@ static Move_t moveTiger(const vector<Token_t>& state) {
     static int tigerMoveCount = 0;
     Move_t result{};
     Point_t start{-1, -1};
-    Token_t tigerToken = getTigerToken(state); //Larry: updated to use new helper
-    start = tigerToken.location;
+    Token_t tigerToken{};
+    for(auto& t : state){
+        bool isTiger = (t.color == RED);
+        if(isTiger){
+            start = t.location;
+            tigerToken = t;
+        }
+    }
     //STEP 1)
-    //Larry: Adjusted tiger initial steps to dynamically escape the lair
     if (tigerMoveCount < 3) {
         Point_t dest = start;
-        vector<Move_t> validMoves = getTigerValidMoves(state);
-        for(auto tigerMove: validMoves){
-            if(tigerMove.destination.row > start.row){
-                dest = tigerMove.destination;
-            }
+        if(tigerMoveCount == 0){
+            dest = {start.row + 1, start.col + 1};
+        }else if(tigerMoveCount == 1){
+            dest = {start.row + 1, start.col - 1};
+        }else{
+            dest = {start.row + 1, start.col};
         }
-        result = {tigerToken,dest};
+        
+        result = {tigerToken, dest};
         tigerMoveCount++;
     }else{
         //STEP 2
@@ -363,16 +349,16 @@ static Move_t moveTiger(const vector<Token_t>& state) {
             vector<Token_t> nextState = state;
             if (abs(dr) == 2 || abs(dc) == 2) {
                 Point_t mid{
-                        m.token.location.row + dr/2, m.token.location.col + dc/2
+                    m.token.location.row + dr/2, m.token.location.col + dc/2
                 };
                 nextState.erase(
-                        remove_if(
-                                nextState.begin(), nextState.end(),
-                                [&](auto& x){
-                                    return x.color == BLUE
-                                           && samePoint(x.location, mid);
-                                }
-                        ), nextState.end()
+                    remove_if(
+                        nextState.begin(), nextState.end(),
+                              [&](auto& x){
+                                  return x.color == BLUE
+                                  && samePoint(x.location, mid);
+                              }
+                    ), nextState.end()
                 );
             }
             //STEP 3
@@ -386,13 +372,13 @@ static Move_t moveTiger(const vector<Token_t>& state) {
         //STEP 4
         if(!cands.empty()){
             sort(
-                    cands.begin(), cands.end(),[]
-                            (const Candidate& a,
-                             const Candidate& b
-                            ){
-                        if(a.jumpCount != b.jumpCount) return a.jumpCount > b.jumpCount;
-                        return a.dist < b.dist;
-                    });
+                 cands.begin(), cands.end(),[]
+                 (const Candidate& a,
+                  const Candidate& b
+                  ){
+                if(a.jumpCount != b.jumpCount) return a.jumpCount > b.jumpCount;
+                return a.dist < b.dist;
+            });
             result = cands.front().mv;
         }
     }
@@ -443,8 +429,40 @@ J@J       ~@@@@@@@@#:  5@@@@@@@@~
 7@P       ?@@@@@@&~      !@@@@@@P
 7@P       J@@@@@@G.      ~&@@@@@G.
  */
-
+/*
+ * Authors:Dakota Hernandez
+ * description: generate all valid moves for the men (BLUE)
+ * return: vector<Move_t>
+ * precondition: state contains valid tokens with correct colors
+ * postcondition: returns a list of single-step moves into empty,
+ *---------------- non-lair adjacent squares
+ */
 // ------------ Men (BLUE) Helpers -------------
+
+
+/*
+ * Authors: Dannis Wu
+ * description: checks whether two points are not the same
+ * return: bool
+ * precondition: points a and b are valid board positions
+ * postcondition: returns true if either the row or column differs, false otherwise
+ */
+inline bool operator!=(const Point_t& a, const Point_t& b) {
+    return !(a.row == b.row && a.col == b.col);
+}
+/*
+ * Authors: Dannis Wu
+ * description: defines less-than comparison between two points using row and column
+ * return: bool
+ * precondition: points a and b are valid board positions
+ * postcondition: returns true if (a.row, a.col) is lexicographically less than (b.row, b.col)
+ */
+inline bool operator<(const Point_t& a, const Point_t& b) {
+    return std::tie(a.row, a.col) < std::tie(b.row, b.col);
+}
+static Point_t tigerLastSeen{-1, -1}; //knowing Tiger position for helping men make assumption
+
+
 
 /*
  * Authors: Dakota Hernandez & Larry O'Connor
@@ -1014,3 +1032,5 @@ static Move_t Move_Team2(const vector<Token_t>& state, Color_t turn){
 
 
 #endif /* Team2_h */
+
+

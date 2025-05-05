@@ -1,4 +1,3 @@
-
 /*
  * Authors: Dakota Hernandez,
  *----------Sofia Amador
@@ -474,13 +473,13 @@ static vector<Move_t> getMenValidMoves(const vector<Token_t>& state) {
 }
 
 /*
- * Authors: Larry O'Connor
+ * Authors: Larry O'Connor Dannis Wu
  * description: check if a move is an undo of previous move
  * return: bool
  * precondition: valid move
  * postcondition: returns true is move is an undo
  */
-bool isMoveUndo(const Move_t &move) {
+static bool isMoveUndo(const Move_t &move) {
     return samePoint(move.token.location, lastMenMove.destination)
            && samePoint(move.destination, lastMenMove.token.location);
 }
@@ -632,7 +631,7 @@ static bool isWinInOne(const Move_t &move, const vector<Token_t> &state) {
 static bool isWinInTwo(const Move_t &m, const vector<Token_t> &state) {
 
     vector<Token_t> sim1 = state;
-    bool canWinNext = false;
+    bool canWinNext;
 
     for(Token_t& token : sim1) {
         if(token.color == BLUE && samePoint(token.location, m.token.location)) {
@@ -643,6 +642,7 @@ static bool isWinInTwo(const Move_t &m, const vector<Token_t> &state) {
 
     vector<Move_t> tigerReplies = getTigerValidMoves(sim1);
     for(Move_t& move : tigerReplies) {
+        canWinNext = false;
         vector<Token_t> sim2 = sim1;
         for(Token_t& token : sim2) {
             if(token.color == RED && samePoint(token.location, move.token.location)) {
@@ -676,12 +676,12 @@ static bool isWinInTwo(const Move_t &m, const vector<Token_t> &state) {
  * description: checks if the tiger is in or near a corner and not threatening any captures
  * return: bool
  * precondition: state contains valid RED and BLUE tokens
- * postcondition: returns true if the tiger is within 1 tile of a corner and has no valid capture moves
+ * po stcondition: returns true if the tiger is within 1 tile of a corner and has no valid capture moves
  */
 
 static bool isTigerCorneredButNotThreatening(const vector<Token_t>& state) {
     Point_t tiger = getTigerToken(state).location;
-    const Point_t corners[4] = {{0,0},{0,8},{12,0},{12,8}};
+    const Point_t corners[4] = {{4,0},{4,8},{12,0},{12,8}};
 
     for (const Point_t& corner : corners) {
         if (manhattan(tiger, corner) <= 1) {
@@ -709,13 +709,13 @@ static bool isTigerCorneredButNotThreatening(const vector<Token_t>& state) {
  */
 static double getMenMoveScore(const Move_t& move, const Point_t& targetCorner, const vector<Token_t>& state){
     //NOTE: these can be adjusted
-    const double mult_corner = 1.3;
-    const double mult_rowTightness = 1.2;
-    const double mult_colTightness = 0.6;
-    const double mult_tigerMobility = 1.6;
-    const double mult_far = 0.35;
-    const double mult_closer = 1.0;
-    const double mult_trapBonus = 75.0; //added this in case win in one logic messed up
+    const double mult_corner = 1.25;
+    const double mult_rowTightness = 1.0;
+    const double mult_colTightness = 1.0;
+    const double mult_tigerMobility = 2.0;
+    const double mult_far = 0.2;
+    const double mult_closer = 1.1;
+    const double mult_towardBonus = 0.5;
 
     Point_t tigerPos = getTigerToken(state).location;
     int oldDist = manhattan(tigerPos, targetCorner);
@@ -733,25 +733,31 @@ static double getMenMoveScore(const Move_t& move, const Point_t& targetCorner, c
     int rowSpan = getMenRowTightness(sim);
     int colSpan = getMenColTightness(sim);
     int newTigerMobility   = tigerCaptureMobility(sim);
-    bool trapped = (newTigerMobility == 0);
 
-    double menDistance = manhattan(move.token.location, tigerPos);
 
     double oldMenDist = manhattan(move.token.location, tigerPos);
     double newMenDist = manhattan(move.destination,    tigerPos);
     double menDistChange = oldMenDist - newMenDist;
 
+    double towardBonus = 0.0;
+    if(tigerPos.row > move.token.location.row){
+        towardBonus = (move.token.location.row < move.destination.row ? 1.0 : 0.0);
+    }
+    else if(tigerPos.row < move.token.location.row){
+        towardBonus = (move.token.location.row > move.destination.row ? 1.0 : 0.0);
+    }
+
     double score = (mult_corner * deltaCorner
                     - mult_rowTightness * rowSpan
-                    - mult_colTightness * colSpan
                     - mult_tigerMobility * newTigerMobility
-                    + mult_trapBonus * (trapped ? 1.0 : 0.0)
-                    + mult_far * menDistance
-                    + mult_closer * menDistChange);
+                    + mult_colTightness * colSpan
+                    + mult_far * oldMenDist
+                    + mult_closer * menDistChange
+                    + mult_towardBonus * towardBonus);
 
-// Add aggressive bonus if tiger is near a corner and not threatening
-    if (isTigerCorneredButNotThreatening(state)) {
-        double encroachBonus = 15.0;
+//Dannis: Add aggressive bonus if tiger is near a corner and not threatening
+    if(isTigerCorneredButNotThreatening(state)) {
+        double encroachBonus = 2.0;
         double distToTiger = manhattan(move.destination, tigerPos);
         score += encroachBonus / (1 + distToTiger); // closer = more reward
     }
@@ -799,18 +805,6 @@ static bool isDiagonalTrapPattern(const Move_t& m, const vector<Token_t>& state)
     }
     return false;
 }
-/*
- * Authors: Dannis Wu
- * description: detects whether a move simply reverses the most recent move made
- * return: bool
- * precondition: move is valid, lastMenMove has been updated at least once
- * postcondition: returns true if move undoes the previous move
- */
-static bool isRecentMovePattern(const Move_t& m) {
-    return samePoint(m.token.location, lastMenMove.destination)
-           && samePoint(m.destination, lastMenMove.token.location);
-}
-
 
 // ------------ Men (BLUE) Move Extraction -------------
 // Only forward moves (one row up, same column), choosing from the
@@ -966,7 +960,7 @@ static Move_t moveMenUpdated(const vector<Token_t>& state) {
     }
 
     for(Move_t& move : tiedMoves) {
-        if(!inMenHistory(move.destination) && !isRecentMovePattern(move))
+        if(!inMenHistory(move.destination))
             nonRepeatedMoves.push_back(move);
 
     }
@@ -985,7 +979,7 @@ static Move_t moveMenUpdated(const vector<Token_t>& state) {
                 break;
             }
         }
-        double span = getMenRowTightness(sim)*1.25 + getMenColTightness(sim);
+        double span = getMenRowTightness(sim) - getMenColTightness(sim)*0.75;
         if(span < bestSpan) {
             bestSpan = span;
             best = move;
@@ -994,7 +988,7 @@ static Move_t moveMenUpdated(const vector<Token_t>& state) {
 
     //STEP 6: Return best move
     menMoveHistory[menMoveHistoryIndex] = best.destination;
-    menMoveHistoryIndex = (++menMoveHistoryIndex) % 4;
+    menMoveHistoryIndex = (++menMoveHistoryIndex)%4;
     lastMenMove = best;
     return best;
 }
